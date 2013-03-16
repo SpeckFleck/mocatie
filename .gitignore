@@ -1,0 +1,7 @@
+# compile and execution output
+*.o
+*.so
+*.a
+*.d
+gmon.out
+fit.log
