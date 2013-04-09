@@ -12,6 +12,7 @@
 #ifndef BOARD_HPP
 #define BOARD_HPP
 
+#include <cassert>
 #include <boost/array.hpp>
 
 #include <boost/archive/text_oarchive.hpp>
@@ -21,25 +22,29 @@
 
 namespace take_it_easy
 {
-  typedef boost::array<uint8_t, 3> CardType;
+  typedef uint8_t CardNumberType;
+  typedef boost::array<CardNumberType, 3> CardType;
   typedef boost::array<CardType*, 27> CardVectorType;
-  
-  template<class RandomNumberGenerator>
+
+  std::ostream& operator<<(std::ostream&, const CardType&);
+  std::ostream& operator<<(std::ostream&, const CardVectorType&);
+
   class Board
   {
+    friend std::ostream& operator<< (std::ostream&, const Board &);
   private:
     CardVectorType card_space;
     simulation_time_type simulation_time;
 
-    CardType* gen_card(const uint8_t&, const uint8_t&, const uint8_t&);
+    CardType* gen_card(const CardNumberType&, const CardNumberType&, const CardNumberType&);
   public:
     Board();
     ~Board();
     
-    double energy() const;
+    energy_type energy() const;
     simulation_time_type get_simulation_time() const;
-    Step<RandomNumberGenerator> propose_step(RandomNumberGenerator*);
-    void commit(Step<RandomNumberGenerator>&);
+    template<class RandomNumberGenerator> Step<Board> propose_step(RandomNumberGenerator*);
+    void commit(Step<Board>&);
     void swap_cards(const card_id_type&, const card_id_type&);
 
     template<class Archive> void serialize(Archive & ar, const unsigned int)

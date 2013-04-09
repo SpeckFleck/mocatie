@@ -18,24 +18,24 @@
 #ifndef STEP_HPP
 #define STEP_HPP
 
+#include <cassert>
+
 namespace take_it_easy
 {
 
-  template <class> class Board;
-
   typedef uint8_t card_id_type;
-  typedef uint32_t energy_type;
+  typedef int energy_type;
   typedef uint64_t simulation_time_type;
 
-  template<class RandomNumberGenerator>
+  template<class Board>
   class Step {
   private:
-    Board<RandomNumberGenerator>* const take_it_easy_space;
+    Board* const take_it_easy_space;
     card_id_type remove_idx;
     card_id_type insert_idx;
     simulation_time_type creation_simulation_time;
   public:
-    Step(Board<RandomNumberGenerator>* const, const card_id_type&, const card_id_type&);
+    Step(Board* const, const card_id_type&, const card_id_type&);
     ~Step();
     int get_creation_simulation_time() const;
     energy_type delta_E() const;

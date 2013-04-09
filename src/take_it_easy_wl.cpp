@@ -35,21 +35,22 @@
 #include <boost/format.hpp>
 #include <boost/filesystem.hpp>
 
-#include <random_boost_mt19937.hpp>
-#include <histograms/histocrete.hpp>
-#include <wang_landau.hpp>
+#include <mocasinns/random/boost_random.hpp>
+#include <mocasinns/histograms/histocrete.hpp>
+#include <mocasinns/wang_landau.hpp>
 #include <Board.hpp>
 
 namespace boost_po = boost::program_options;
 namespace boost_fs = boost::filesystem;
 
-typedef Boost_MT19937 RngType;
-typedef Mocasinns::Histograms::Histocrete<take_it_easy::energy_type, long long int> IncidenceHistogramType;
-typedef Mocasinns::Histograms::Histocrete<take_it_easy::energy_type, double> HistogramType;
-typedef take_it_easy::Board<RngType> ConfigurationType;
-typedef take_it_easy::Step<RngType> StepType;
+typedef take_it_easy::energy_type energy_type;
+typedef Mocasinns::Random::Boost_MT19937 RngType;
+typedef Mocasinns::Histograms::Histocrete<energy_type, uint64_t> IncidenceHistogramType;
+typedef Mocasinns::Histograms::Histocrete<energy_type, double> HistogramType;
+typedef take_it_easy::Board ConfigurationType;
+typedef take_it_easy::Step<ConfigurationType> StepType;
 typedef Mocasinns::Simulation<ConfigurationType, RngType> ParentSimulationType;
-typedef Mocasinns::WangLandau<ConfigurationType, StepType, take_it_easy::energy_type, Mocasinns::Histograms::Histocrete, RngType> SimulationType;
+typedef Mocasinns::WangLandau<ConfigurationType, StepType, energy_type, Mocasinns::Histograms::Histocrete, RngType> SimulationType;
 
 static std::string output_directory;
 
@@ -64,6 +65,7 @@ void init_logging()
 			      << "> " << boost::log::expressions::message);
   
   boost::log::add_file_log (boost::log::keywords::file_name = (output_directory + std::string("/protocol.log")).c_str(), 
+			    boost::log::keywords::auto_flush = true,
 			    boost::log::keywords::format = boost::log::expressions::stream
 			    << boost::log::expressions::format_date_time< boost::posix_time::ptime >("TimeStamp", "%Y-%m-%d %H:%M:%S.%f")
 			    << " [" << boost::log::expressions::attr< unsigned int >("LineID")
@@ -120,6 +122,7 @@ void handle_sig_usr2(ParentSimulationType* parent_simulation)
 
   incidence_counter.set_all_y_values(0);
   wang_landau_simulation->set_incidence_counter(incidence_counter);
+  BOOST_LOG_TRIVIAL(info) << "Incidence counter has been reset.";
 }
 
 void handle_sig_term(ParentSimulationType* parent_simulation)
@@ -137,6 +140,8 @@ void sweep_handler(ParentSimulationType* parent_simulation)
   BOOST_LOG_TRIVIAL(info) << "Sweep completed with \tt= " << wang_landau_simulation->get_config_space()->get_simulation_time() 
 			  << " \tm= " << wang_landau_simulation->get_modification_factor_current()
 			  << " \tf= " << wang_landau_simulation->get_incidence_counter().flatness();
+  
+  HistogramType entropy_estimation = wang_landau_simulation->get_density_of_states();
 }
 
 void modfac_handler(ParentSimulationType* parent_simulation)
@@ -172,7 +177,7 @@ int main(int argc, char* argv[])
         ("mod_final,m", boost_po::value<double>()->default_value(1e-2), "Final modification factor.")
         ("mod_start,s", boost_po::value<double>()->default_value(1.0), "Modification factor at beginning of simulation.")
         ("mod_multi,M", boost_po::value<double>()->default_value(0.5), "Modification factor multiplier - gets multiplied whenever flatness is reached.")
-        ("energy_limit,E", boost_po::value<uint32_t>(), "Set energy limit. No limit, if parameter is missing.")
+        ("energy_limit,E", boost_po::value<energy_type>(), "Set energy limit. No limit, if parameter is missing.")
         ("output_directory,o", boost_po::value<std::string>(), "Directory for the output of results, progress reports etc.")
         ("sweep_steps,N", boost_po::value<double>()->default_value(1e4), "How many steps between 2 flatness checks and corresponding status reports etc.")
         ;
@@ -216,11 +221,11 @@ void run_simulation(boost_po::variables_map& option_arguments, std::string& prog
   const double sweep_steps = option_arguments["sweep_steps"].as<double>();
 
   bool energy_limit_use = false;
-  uint64_t energy_limit = 0;
+  energy_type energy_limit = 0;
   if (option_arguments.count("energy_limit"))
     {
       energy_limit_use = true;
-      energy_limit = option_arguments["energy_limit"].as<uint32_t>();
+      energy_limit = option_arguments["energy_limit"].as<energy_type>();
     }
 
   BOOST_LOG_TRIVIAL(debug) << "Finished reading simulation options.";
@@ -258,7 +263,7 @@ void run_simulation(boost_po::variables_map& option_arguments, std::string& prog
   init_logging();
 
 
-  SimulationType::Parameters<take_it_easy::energy_type> wang_landau_parameters;
+  SimulationType::Parameters<energy_type> wang_landau_parameters;
   wang_landau_parameters.modification_factor_initial = mod_start;
   wang_landau_parameters.modification_factor_final = mod_final;
   wang_landau_parameters.modification_factor_multiplier = mod_multi;
@@ -281,6 +286,39 @@ void run_simulation(boost_po::variables_map& option_arguments, std::string& prog
 
   // run
   wang_landau_simulation->do_wang_landau_simulation();
+
+  bool max_found = false;
+  while(!max_found)
+    {
+      if(take_it_easy_configuration->energy() == 307)
+	{
+	  std::cout << *take_it_easy_configuration << std::endl << std::endl;
+	  max_found = true;
+	}
+      wang_landau_simulation->do_wang_landau_steps(1);
+    }
+
+  bool min_found = false;
+  while(!min_found)
+    {
+      if(take_it_easy_configuration->energy() == 0)
+	{
+	  std::cout << *take_it_easy_configuration << std::endl << std::endl;
+	  min_found = true;
+	}
+      wang_landau_simulation->do_wang_landau_steps(1);
+    }
+  
+  bool typical_found = false;
+  while(!typical_found)
+    {
+      if(take_it_easy_configuration->energy() == 150)
+  	{
+	  std::cout << *take_it_easy_configuration << std::endl << std::endl;
+  	  typical_found = true;
+  	}
+      wang_landau_simulation->do_wang_landau_steps(1);
+    }
 
   delete take_it_easy_configuration;
   delete wang_landau_simulation;

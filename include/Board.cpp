@@ -29,8 +29,7 @@
 namespace take_it_easy
 {
 
-  template<class RandomNumberGenerator>
-  Board<RandomNumberGenerator>::Board()
+  Board::Board()
   { 
     // vertical: 1 5 9
     // up down diagonal: 3 4 8
@@ -64,15 +63,13 @@ namespace take_it_easy
     card_space[26] = gen_card(9, 8, 7);
   }
 
-  template<class RandomNumberGenerator>
-  Board<RandomNumberGenerator>::~Board()
+  Board::~Board()
   {
-    for (uint8_t i = 0; i < 27; i++)
+    for (card_id_type i = 0; i < 27; i++)
       delete card_space[i];
   }
 
-  template<class RandomNumberGenerator>
-  CardType* Board<RandomNumberGenerator>::gen_card(const uint8_t& x, const uint8_t& y, const uint8_t& z)
+  CardType* Board::gen_card(const CardNumberType& x, const CardNumberType& y, const CardNumberType& z)
   {
     CardType* new_card = new CardType();
     (*new_card)[0] = x;
@@ -81,10 +78,9 @@ namespace take_it_easy
     return new_card;
   }
 
-  template<class RandomNumberGenerator>
-  double Board<RandomNumberGenerator>::energy() const
+  energy_type Board::energy() const
   {
-    double current_energy = 0.;
+    energy_type current_energy = 0;
 
     // currently all rules are hard coded
     // could definitely be coded more intelligently and adapted for easy delta_E generation in take_it_easy::Step
@@ -151,27 +147,28 @@ namespace take_it_easy
     if ((*(card_space[18]))[2] == (*(card_space[17]))[2] && 
 	(*(card_space[18]))[2] == (*(card_space[15]))[2])
       {	current_energy += 3 * (*(card_space[18]))[2]; }
-    
+
+    assert (current_energy >= 0);
     return current_energy;
   }
 
-  template<class RandomNumberGenerator>
-  simulation_time_type Board<RandomNumberGenerator>::get_simulation_time() const
+  simulation_time_type Board::get_simulation_time() const
   {
     return simulation_time;
   }
 
   template<class RandomNumberGenerator>
-  Step<RandomNumberGenerator> Board<RandomNumberGenerator>::propose_step(RandomNumberGenerator* rng)
+  Step<Board> Board::propose_step(RandomNumberGenerator* rng)
   {
     const card_id_type remove_idx = rng->random_uint32(0, 18);
-    const card_id_type insert_idx = rng->random_uint32(19, 26);
-    
-    return Step<RandomNumberGenerator>(this, remove_idx, insert_idx);
+    const card_id_type insert_idx = rng->random_uint32(0, 25);
+    if (insert_idx >= remove_idx)
+      return Step<Board>(this, remove_idx, insert_idx + 1);
+    else
+      return Step<Board>(this, remove_idx, insert_idx);
   }
 
-  template<class RandomNumberGenerator>
-  void Board<RandomNumberGenerator>::commit(Step<RandomNumberGenerator>& step_to_commit)
+  void Board::commit(Step<Board>& step_to_commit)
   {
     const card_id_type remove_idx = step_to_commit.get_remove_idx();
     const card_id_type insert_idx = step_to_commit.get_insert_idx();
@@ -180,14 +177,42 @@ namespace take_it_easy
     simulation_time += 1;
   }
   
-  template<class RandomNumberGenerator>
-  void Board<RandomNumberGenerator>::swap_cards(const card_id_type& remove_idx, const card_id_type& insert_idx)
+  void Board::swap_cards(const card_id_type& remove_idx, const card_id_type& insert_idx)
   {
+    assert(remove_idx != insert_idx);
+    assert(remove_idx < 27);
+    assert(insert_idx < 27);
+
     CardType* const to_be_removed = card_space[remove_idx];
     CardType* const to_be_inserted = card_space[insert_idx];
-    
+
     card_space[insert_idx] = to_be_removed;
     card_space[remove_idx] = to_be_inserted;
+  }
+
+  std::ostream& operator<<(std::ostream& out_stream, const Board& board)
+  {
+    out_stream << board.card_space;
+    return out_stream;
+  }
+
+  std::ostream& operator<<(std::ostream& out_stream, const CardType& card)
+  {
+    const std::string separator("\t");
+    out_stream << (int)card[0] << separator;
+    out_stream << (int)card[1] << separator;
+    out_stream << (int)card[2];
+    return out_stream;
+  }
+
+  std::ostream& operator<<(std::ostream& out_stream, const CardVectorType& card_vector)
+  {
+    const std::string separator("\n");
+    for (CardVectorType::const_iterator cv_it = card_vector.begin(); cv_it != card_vector.end(); cv_it++)
+      {
+	out_stream << *(*cv_it) << separator;
+      }
+    return out_stream;
   }
   
 }
