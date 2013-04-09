@@ -287,39 +287,6 @@ void run_simulation(boost_po::variables_map& option_arguments, std::string& prog
   // run
   wang_landau_simulation->do_wang_landau_simulation();
 
-  bool max_found = false;
-  while(!max_found)
-    {
-      if(take_it_easy_configuration->energy() == 307)
-	{
-	  std::cout << *take_it_easy_configuration << std::endl << std::endl;
-	  max_found = true;
-	}
-      wang_landau_simulation->do_wang_landau_steps(1);
-    }
-
-  bool min_found = false;
-  while(!min_found)
-    {
-      if(take_it_easy_configuration->energy() == 0)
-	{
-	  std::cout << *take_it_easy_configuration << std::endl << std::endl;
-	  min_found = true;
-	}
-      wang_landau_simulation->do_wang_landau_steps(1);
-    }
-  
-  bool typical_found = false;
-  while(!typical_found)
-    {
-      if(take_it_easy_configuration->energy() == 150)
-  	{
-	  std::cout << *take_it_easy_configuration << std::endl << std::endl;
-  	  typical_found = true;
-  	}
-      wang_landau_simulation->do_wang_landau_steps(1);
-    }
-
   delete take_it_easy_configuration;
   delete wang_landau_simulation;
 }
